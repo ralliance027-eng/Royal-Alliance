@@ -1,0 +1,7 @@
+project_id = "royal-alliance-draw-system"
+
+[functions.create-user]
+verify_jwt = true
+
+[functions.send-whatsapp]
+verify_jwt = true

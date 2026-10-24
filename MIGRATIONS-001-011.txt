@@ -1,0 +1,13 @@
+Royal Alliance migration manifest
+Apply these SQL files in numeric order, 001 through 011:
+202610090001_initial_schema.sql
+202610090002_workflow_hardening.sql
+202610090003_payment-approval-safety.sql
+202610090004_scope-and-settlement-hardening.sql
+202610090005_approve_payment_final.sql
+202610090006_scope-settlement-final.sql
+202610090007_final_security-settlement-fixes.sql
+202610090008_member_referral_payouts.sql
+202610090009_final_defensive_scope_settlement.sql
+202610090010_admin_pages_and_settings.sql
+202610090011_payout_scope_guard.sql
