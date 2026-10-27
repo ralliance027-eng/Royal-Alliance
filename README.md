@@ -35,3 +35,10 @@ See `COMMISSION-REFERRALS-CHAIN-V73.md` for hierarchy, direct-parent commission 
 
 ## V77 commission rule update (packaged, not deployed)
 See `V77-DIRECT-PARENT-10-GRANDPARENT-2-COMMISSION.md` and migration `supabase/migrations/20261019130000_direct_parent_10pct_grandparent_2pct.sql`. This changes future approvals so the direct parent gets 10% and the parent of that parent gets 2%. The migration is not yet applied to live Supabase.
+
+## V79 — Sub-Agent 2% qualification
+Migration `20261027120000_subagent_override_requires_three_active_members.sql` is applied to the connected Royal Alliance Supabase project. For future approvals, the hierarchy 2% override is only credited when the intended override beneficiary has at least three active members assigned directly to that profile. Two or fewer means no hierarchy 2% ledger entry. The separate Member Referral 2% rule remains unchanged (at least two qualifying referred members with approved payment history). Existing ledger entries are not recalculated.
+
+
+## V80 Commission rule update (migration packaged; live deployment must be verified)
+See `V80-COMMISSION-RULES.md` and `supabase/migrations/20261027150000_v80_direct_10_parent_2_active_subagents.sql`. 10% goes to the collector; 2% goes only to the immediate parent if that parent has at least two active direct Sub-Agent children.
