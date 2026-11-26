@@ -76,3 +76,39 @@ Do not run `supabase db reset` or blindly `db push` until the remaining historic
 - The Deno import `npm:@supabase/supabase-js@2` in the snapshot was intentionally left unchanged; it is valid in the Deno Edge Function environment and is not a Next.js dependency import.
 - `package.json` dependencies and versions were preserved without changes.
 - Build execution was not performed in this packaging step; run `npm run build` in the project environment.
+
+
+## Anaira developer micro-branding (2026-11-26)
+- Added the supplied Anaira logo as a compact circular brand mark at `public/images/anaira-brand-mark.png`.
+- Added restrained `Powered by Anaira Graphics & Digital Solution` attribution on the login screen and authenticated dashboard footer.
+- Added clickable `tel:+919736500084` and `tel:+919736589984` contact links and `https://graphics.anairapos.in` website link.
+- Added developer attribution metadata while preserving Royal Alliance as the application/product brand.
+- Existing Royal Alliance logo, name, workflows, Supabase configuration and migrations were not changed by this branding update.
+- Branding is compact and responsive; no large promotional banner or customer-brand replacement was added.
+- Build execution was not performed during ZIP packaging; run `npm run build` in the target environment.
+
+
+## Anaira micro-branding contact and sizing revision (2026-11-26)
+- Corrected the second contact number to `9736580084`; the two displayed numbers are `9736500084` and `9736580084`.
+- Updated both `tel:` links to `tel:+919736500084` and `tel:+919736580084` respectively.
+- Increased the compact Anaira logo mark slightly for better visibility while reducing the developer-credit text and footer spacing.
+- Kept the Anaira attribution at the end of the login content and authenticated dashboard content, without competing with Royal Alliance branding.
+
+
+## Anaira branding link and icon refinement (2026-11-26)
+- Added a phone icon before each clickable call number and a globe icon before the website link.
+- Made the `Anaira Graphics` name clickable, opening a Google Maps business search for Anaira Graphics & Digital Solution, Akhara Bazar, Kullu, Himachal Pradesh.
+- The Maps link is a business search URL, not a verified direct Google Business Profile share URL; replace with the exact GBP share link if supplied by the business owner.
+
+
+## Complete in-app notification centre implementation (2026-11-26)
+- Added migration `20261126050000_complete_in_app_notification_centre.sql` creating role-scoped `app_notifications`, own-row RLS, event routing triggers, indexes, and Realtime publication membership.
+- Added bell dropdown with unread badge, latest 40 notifications, mark-read, mark-all-read, and Realtime INSERT/UPDATE subscription scoped to the signed-in user's own rows.
+- Added optional browser desktop alerts while the app is open and the browser permission is granted. This is not a closed-browser Web Push service worker.
+- Trigger events: member created, agent created, payment submitted/approved/rejected, payout requested/status changed, draw completed, and gift delivery status changed.
+- WhatsApp send/delivery logs remain in the existing WhatsApp Notifications section; they are not duplicated into the in-app notification feed automatically.
+- Migration must be applied to Supabase before the centre can receive database-triggered notifications. Existing historical events are not backfilled.
+- Validate actual role/tenant recipient mapping against production data before production rollout.
+
+- Payment status transition routing explicitly covers both `approved` and `rejected`; the SQL derives the event key from the new status.
+- This ZIP includes the migration source but does not apply it to the live Supabase database.
