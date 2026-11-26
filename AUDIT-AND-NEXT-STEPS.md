@@ -112,3 +112,13 @@ Do not run `supabase db reset` or blindly `db push` until the remaining historic
 
 - Payment status transition routing explicitly covers both `approved` and `rejected`; the SQL derives the event key from the new status.
 - This ZIP includes the migration source but does not apply it to the live Supabase database.
+
+## Settings Control Centre V1 (2026-11-26)
+- Replaced the basic settings panel with a Super Admin-only, responsive settings workspace.
+- Added Company Profile, Finance & Locale, Membership, Commission, Referral Rules, Draw Rules, ID Numbering, Receipts & Print, Notifications, Security & Access, and Change History sections.
+- Settings are stored per-section in the existing `company_settings` JSONB table and remain subject to its existing Super Admin RLS write policy.
+- Added `20261126060000_settings_control_centre.sql` to create a protected settings history table and an internal trigger that captures INSERT/UPDATE/DELETE before/after values and actor identity.
+- Important: values described in the UI as stored preferences are not represented as live workflow enforcement. Commission/referral calculations, ID generators, receipt renderers, registration gates, and notification preferences require separate workflow/database integration before those settings control production behaviour.
+- Existing ledger entries, payments, member IDs, and draw results are not rewritten by settings saves.
+- Static JSX parser validation: PASS. `scripts/validate-release.mjs`: PASS. Production Next.js build and authenticated E2E tests were not run in this environment.
+- Apply the new migration to Supabase before using Change History. Do not assume it is applied by a Git push.
