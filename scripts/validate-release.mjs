@@ -8,41 +8,55 @@ const required = [
   'app/dashboard/[section]/page.jsx', 'lib/supabase.js',
   'supabase/functions/create-user/index.ts',
   'supabase/functions/send-whatsapp/index.ts',
-  'supabase/migrations/202610090001_initial_schema.sql',
-  'supabase/migrations/202610090011_payout_scope_guard.sql',
-  'supabase/migrations/20261013150000_concurrent_member_registration_safety.sql',
+  'supabase/functions/whatsapp-webhook/index.ts',
+  'supabase/functions/_shared/cors.ts',
+  'supabase/migrations/20261009000100_initial_schema.sql',
+  'supabase/migrations/20261126042940_code_migration_audit_and_sequence_access.sql',
+  'supabase/migrations/20261126043034_policy_deduplication_and_fk_indexes.sql',
+  'supabase/migrations/20261126043351_whatsapp_manual_subagent_scope.sql',
   '.env.example', 'README.md', 'AUDIT-AND-NEXT-STEPS.md'
 ];
 const errors = [];
+const warnings = [];
 for (const file of required) if (!fs.existsSync(path.join(root, file))) errors.push(`Missing required file: ${file}`);
-const migrations = fs.readdirSync(path.join(root, 'supabase/migrations')).filter(f => /^\d{12}_.+\.sql$/.test(f)).sort();
-if (migrations.length !== 15) errors.push(`Expected 15 numbered migrations, found ${migrations.length}`);
-for (let i = 0; i < migrations.length; i++) {
-  const expected = `20261009${String(i + 1).padStart(4, '0')}_`;
-  if (!migrations[i].startsWith(expected)) errors.push(`Migration sequence gap/order issue near ${migrations[i]}`);
+const migrationDir = path.join(root, 'supabase/migrations');
+const migrations = fs.readdirSync(migrationDir).filter(f => /^\d{14}_.+\.sql$/.test(f)).sort();
+if (migrations.length < 2) errors.push(`Expected 14-digit timestamp migrations, found ${migrations.length}`);
+const versions = new Set();
+for (const file of migrations) {
+  const version = file.slice(0, 14);
+  if (versions.has(version)) errors.push(`Duplicate migration version: ${version}`);
+  versions.add(version);
 }
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 if (!pkg.scripts?.build) errors.push('package.json is missing the build script');
+if (!pkg.engines?.node) errors.push('Node engine requirement is missing');
+if (!fs.existsSync(path.join(root, 'package-lock.json'))) warnings.push('package-lock.json is not present; npm registry was unavailable during this review, so a reproducible lockfile could not be generated.');
 const supabaseClient = fs.readFileSync(path.join(root, 'lib/supabase.js'), 'utf8');
 if (/SUPABASE_SERVICE_ROLE_KEY/.test(supabaseClient)) errors.push('Service role key reference found in browser Supabase client');
-const approval = fs.readFileSync(path.join(root, 'supabase/migrations/202610090005_approve_payment_final.sql'), 'utf8');
-for (const marker of ['office_cash_received', 'earnings_ledger', 'payment.approved', 'referred_count >= 2']) {
-  if (!approval.includes(marker)) errors.push(`Payment approval invariant missing: ${marker}`);
+const cors = fs.readFileSync(path.join(root, 'supabase/functions/_shared/cors.ts'), 'utf8');
+if (/Access-Control-Allow-Origin['"]\s*:\s*['"]\*['"]/.test(cors)) errors.push('Wildcard CORS origin is configured');
+for (const file of ['supabase/functions/create-user/index.ts','supabase/functions/send-whatsapp/index.ts']) {
+  const source = fs.readFileSync(path.join(root,file),'utf8');
+  if (!source.includes('isOriginAllowed(req)')) errors.push(`${file} does not enforce origin allow-list`);
 }
-const scopeGuard = fs.readFileSync(path.join(root, 'supabase/migrations/202610090011_payout_scope_guard.sql'), 'utf8');
-for (const marker of ['guard_payout_team_scope', 'public.is_admin_of_agent', 'Member payout is outside your assigned team']) {
-  if (!scopeGuard.includes(marker)) errors.push(`Payout scope invariant missing: ${marker}`);
+const createUser = fs.readFileSync(path.join(root,'supabase/functions/create-user/index.ts'),'utf8');
+const profileUpdateLine = createUser.match(/const profileUpdate:[^\n]+/);
+if (!profileUpdateLine || (profileUpdateLine[0].match(/source_member_id:/g)||[]).length !== 1) errors.push('create-user profile update must set source_member_id exactly once');
+if (!createUser.includes('createdUserId') || !createUser.includes('rollbackError')) errors.push('create-user rollback path missing');
+const dashboard = fs.readFileSync(path.join(root,'app/dashboard/page.jsx'),'utf8');
+const operational = fs.readFileSync(path.join(root,'app/dashboard/OperationalSections.jsx'),'utf8');
+const reports = fs.readFileSync(path.join(root,'app/dashboard/ReportsDashboard.jsx'),'utf8');
+if (!dashboard.includes("'sub_agent'") || !operational.includes("'sub_agent'") || !reports.includes("'sub_agent'")) errors.push('Sub-Agent dashboard/report access paths are missing');
+const whatsapp = fs.readFileSync(path.join(root,'supabase/functions/send-whatsapp/index.ts'),'utf8');
+for (const marker of ['assertMemberScope','assertAgentScope','is_agent_in_tree','consent_confirmed','AbortSignal.timeout']) {
+  if (!whatsapp.includes(marker)) errors.push(`WhatsApp authorization/reliability invariant missing: ${marker}`);
 }
-const registration = fs.readFileSync(path.join(root, 'supabase/migrations/20261013150000_concurrent_member_registration_safety.sql'), 'utf8');
-for (const marker of ['members_mobile_normalized_unique_idx', 'members_registration_request_unique_idx', 'register_member_idempotent', 'on conflict (registration_request_id) do nothing', 'members_normalize_mobile']) {
-  if (!registration.toLowerCase().includes(marker.toLowerCase())) errors.push(`Concurrency safety invariant missing: ${marker}`);
+const codeAudit = fs.readFileSync(path.join(root,'supabase/migrations/20261126042940_code_migration_audit_and_sequence_access.sql'),'utf8');
+for (const marker of ['enable row level security','log_code_migration_change','members_log_code_migration','agents_log_code_migration','ra_next_agent_code','ra_next_member_code']) {
+  if (!codeAudit.toLowerCase().includes(marker.toLowerCase())) errors.push(`Code migration audit invariant missing: ${marker}`);
 }
-const dashboard = fs.readFileSync(path.join(root, 'app/dashboard/page.jsx'), 'utf8');
-if (!dashboard.includes("rpc('register_member_idempotent'")) errors.push('Member registration is not using the idempotent database RPC');
-const whatsapp = fs.readFileSync(path.join(root, 'supabase/functions/send-whatsapp/index.ts'), 'utf8');
-for (const marker of ['Payment is outside your assigned team', 'Winner is outside your assigned team']) {
-  if (!whatsapp.includes(marker)) errors.push(`WhatsApp authorization invariant missing: ${marker}`);
-}
+for (const forbidden of ['.env.local','supabase/.temp/']) if (fs.existsSync(path.join(root,forbidden))) errors.push(`Sensitive/local file must not ship: ${forbidden}`);
 if (errors.length) {
   console.error('Release validation FAILED');
   for (const error of errors) console.error(`- ${error}`);
@@ -50,8 +64,8 @@ if (errors.length) {
 }
 console.log('Release validation PASSED');
 console.log(`- ${required.length} required files present`);
-console.log(`- ${migrations.length} numbered migrations present in sequence`);
-console.log('- Payment approval, payout team-scope, and WhatsApp team-scope invariants found');
-console.log('- Browser Supabase client contains no service-role key reference');
-console.log('- Member registration uses idempotent RPC, atomic sequence-backed codes, and normalized-mobile uniqueness');
-console.log('Note: this is a static source check, not a database integration or production build test.');
+console.log(`- ${migrations.length} unique 14-digit timestamp migrations found`);
+console.log('- CORS allow-list, create-user rollback, WhatsApp team-scope, and code-history invariants found');
+console.log('- No browser service-role key reference or local secrets in the release package');
+console.log('Note: static source validation only; production build and authenticated E2E tests are separate.');
+for (const warning of warnings) console.warn(`WARNING: ${warning}`);

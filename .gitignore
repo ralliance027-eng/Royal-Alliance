@@ -1,7 +1,11 @@
-node_modules
-.next
-out
+node_modules/
+.next/
+out/
+dist/
+coverage/
 .env
-.env.local
-*.log
+.env.*
+!.env.example
+supabase/.temp/
 .DS_Store
+*.log

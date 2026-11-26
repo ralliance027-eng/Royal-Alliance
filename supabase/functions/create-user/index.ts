@@ -1,8 +1,12 @@
-import { createClient } from 'npm:@supabase/supabase-js@2';
-import { corsHeaders } from '../_shared/cors.ts';
+import { createClient } from 'npm:@supabase/supabase-js@2.57.0';
+import { corsHeadersFor, isOriginAllowed } from '../_shared/cors.ts';
 Deno.serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
+  if (!isOriginAllowed(req)) return new Response(JSON.stringify({ error: 'Origin is not allowed' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  let createdUserId: string | null = null;
+  let adminClient: ReturnType<typeof createClient> | null = null;
   try {
     const url = Deno.env.get('SUPABASE_URL');
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
@@ -15,7 +19,7 @@ Deno.serve(async (req) => {
     const callerClient = createClient(url, anonKey, { global: { headers: { Authorization: authHeader } } });
     const { data: { user: caller }, error: authError } = await callerClient.auth.getUser();
     if (authError || !caller) throw new Error('Invalid session');
-    const adminClient = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
+    adminClient = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
     const { data: callerProfile, error: roleError } = await adminClient.from('profiles').select('id,role,status').eq('id', caller.id).single();
     if (roleError || callerProfile?.status !== 'active') throw new Error('Active staff profile required');
     const body = await req.json();
@@ -37,6 +41,7 @@ Deno.serve(async (req) => {
     });
     if (createError || !createdData.user) throw new Error(createError?.message || 'Could not create account');
     const userId = createdData.user.id;
+    createdUserId = userId;
     let parent_agent_id: string | null = null;
     let assigned_admin_id: string | null = null;
     if (role === 'sub_agent') {
@@ -62,19 +67,25 @@ Deno.serve(async (req) => {
     if (sourceMemberId) {
       const { data: sourceMember, error: sourceMemberError } = await adminClient.from('members').select('id,assigned_agent_id,full_name,mobile').eq('id', sourceMemberId).single();
       if (sourceMemberError || !sourceMember || sourceMember.assigned_agent_id !== parent_agent_id) {
-        await adminClient.auth.admin.deleteUser(userId);
         throw new Error('Selected member must belong directly to the chosen parent Agent/Sub-Agent before promotion.');
       }
     }
-    const profileUpdate: Record<string, unknown> = { full_name, email, mobile, role, status: 'active', assigned_admin_id, parent_agent_id, source_member_id: role === 'sub_agent' ? (String(body.source_member_id || '').trim() || null) : null, source_member_id: sourceMemberId };
+    const profileUpdate: Record<string, unknown> = { full_name, email, mobile, role, status: 'active', assigned_admin_id, parent_agent_id, source_member_id: sourceMemberId };
     const { error: updateError } = await adminClient.from('profiles').update(profileUpdate).eq('id', userId);
     if (updateError) {
-      await adminClient.auth.admin.deleteUser(userId);
-      throw new Error(`Account setup failed; newly created account was rolled back: ${updateError.message}`);
+      throw new Error(`Account setup failed: ${updateError.message}`);
     }
-    await adminClient.from('audit_logs').insert({ actor_id: caller.id, action: `${role}.created`, entity_type: 'profile', entity_id: userId, details: { email, email_invitation_sent: false, parent_agent_id, source_member_id: sourceMemberId } });
+    const { error: auditError } = await adminClient.from('audit_logs').insert({ actor_id: caller.id, action: `${role}.created`, entity_type: 'profile', entity_id: userId, details: { email, email_invitation_sent: false, parent_agent_id, source_member_id: sourceMemberId } });
+    if (auditError) throw new Error(`Account audit could not be recorded: ${auditError.message}`);
+    createdUserId = null; // Commit: profile and audit record both succeeded.
     return new Response(JSON.stringify({ ok: true, user_id: userId, role, message: 'Account created.' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : 'Unexpected error' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    if (createdUserId && adminClient) {
+      const { error: rollbackError } = await adminClient.auth.admin.deleteUser(createdUserId);
+      if (rollbackError) console.error('Failed to roll back newly created Auth user:', rollbackError.message);
+    }
+    const message = e instanceof Error ? e.message : 'Unexpected error';
+    const status = /Invalid session|Authorization token required/.test(message) ? 401 : /Only |outside your|authorized|Active staff|Unsupported account role/.test(message) ? 403 : 400;
+    return new Response(JSON.stringify({ error: message }), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });

@@ -5,3 +5,6 @@ verify_jwt = true
 
 [functions.send-whatsapp]
 verify_jwt = true
+
+[functions.whatsapp-webhook]
+verify_jwt = false

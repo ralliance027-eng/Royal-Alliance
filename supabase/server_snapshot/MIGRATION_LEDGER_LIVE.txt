@@ -1,0 +1,53 @@
+Royal Alliance Supabase live migration ledger
+Project: ralliance Project
+Project ref: ppsvxrvsgfnplsrnkubv
+Captured: 2026-11-26 UTC
+Source: Supabase list_migrations (live server)
+
+20261010082710 | royal_alliance_multi_prize_booking_products
+20261010083127 | multi_prize_draw_execution
+20261010083308 | multi_prize_draw_execution
+20261010083326 | finalize_booking_product_allocation
+20261010084146 | prize_rank_and_multi_winner_config
+20261010084500 | royal_alliance_media_storage_bucket
+20261010085820 | manual_whatsapp_messaging
+20261010113258 | member_kyc_documents
+20261010113847 | fix_member_referral_code_generation
+20261010115657 | manual_whatsapp_fallback_log_policy
+20261010115743 | whatsapp_manual_opened_status
+20261010120940 | allow_manual_opened_whatsapp_logs
+20261010121015 | restore_manual_whatsapp_log_policy
+20261010121028 | scope_manual_whatsapp_log_policy
+20261010121044 | restore_manual_whatsapp_log_policy
+20261010121100 | scope_manual_whatsapp_logs_securely
+20261010121106 | scope_manual_whatsapp_logs_securely
+20261013073926 | harden_security_definer_anon_execute_grants
+20261013073938 | harden_security_definer_function_execute_grants
+20261013074115 | add_missing_foreign_key_indexes_for_scale
+20261013091735 | royal_alliance_register_member_rpc_signature_fix
+20261013095639 | royal_alliance_fix_member_update_assignment_rpc
+20261013100635 | enable_sub_agent_role_and_parent_hierarchy
+20261013100714 | fix_sync_agent_profile_for_sub_agent
+20261014083649 | unlimited_agent_tree_and_qualified_override_v72
+20261016062207 | direct_scope_commission_and_member_promotion_v76
+20261016062336 | fix_override_eligibility_for_descendant_members_v76
+20261019072505 | fix_pgcrypto_member_referral_code_generation
+20261027061722 | v78_member_agent_codes_payment_lookup
+20261027062746 | subagent_override_requires_three_active_members
+20261027063542 | renumber_existing_agent_and_member_codes
+20261028072400 | v80_fix_direct_parent_2pct_commission
+20261126042213 | secure_code_migration_history_rls
+20261126042940 | code_migration_audit_and_sequence_access
+20261126043034 | policy_deduplication_and_fk_indexes
+20261126043045 | optimize_rls_policy_initplans
+20261126043132 | optimize_rls_policy_initplans
+20261126043136 | whatsapp_delivery_status_webhook
+20261126043351 | whatsapp_manual_subagent_scope
+
+Total live migration records: 39
+
+IMPORTANT:
+- This is a ledger manifest, not executable SQL.
+- The management migration ledger lists version/name metadata. The exact SQL body for 20261027063542 was separately recovered from `supabase_migrations.schema_migrations.statements` on the live database and is included in `supabase/migrations/20261027063542_renumber_existing_agent_and_member_codes.sql`.
+- Existing live migration records were not edited or deleted in this work. Seven new migration records dated 2026-11-26 were added during the security/code work (from 20261126042213 through 20261126043351; two records share the optimize_rls_policy_initplans name).
+- Do not run db reset or blindly push this folder until the remaining historical filename/version drift is reconciled.
